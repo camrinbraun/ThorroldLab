@@ -1,4 +1,5 @@
-require(lubridate); require(raster); require(RNetCDF)
+require(lubridate); require(raster); require(RNetCDF); require(HMMoce)
+require(fields)
 
 # explore some sst data
 sst.dir <- '~/Documents/WHOI/Data/WhaleSharks/Natl/EnvData/sst/'
@@ -9,21 +10,20 @@ setwd('~/Documents/WHOI/Data/WhaleSharks/Natl/')
 dat <- read.table(file='encounterSearchResults_export_jcochrane.csv', sep=',', header=T)
 sp.lim <- list(lonmin=-80, lonmax=-60,
                latmin=35, latmax=45)
+
+# use HMMoce::get.bath.data() to download bathymetry
 bathy <- raster::raster('~/Documents/WHOI/Data/Swordfish/batch/sword_ctag_bathy_highres.grd')
 c200 <- rasterToContour(bathy, levels=-200)
+
 dat$sst <- NA
 dat$depth <- NA
 dat$dist_to_200m <- NA
 
-for (i in 8:nrow(dat)){
+for (i in 1:nrow(dat)){
   udates <- as.Date(paste(dat$Year.Identified[i],'-',dat$Month.Identified[i],'-',dat$Day.Identified[i], sep=''), format='%Y-%m-%d')
-  source('~/Documents/WHOI/RCode/HMMoce/R/get.env.r')
-  source('~/Documents/WHOI/RCode/HMMoce/R/get.ghr.sst.r')
-  source('~/Documents/WHOI/RCode/HMMoce/R/get.oi.sst.r')
   
-  get.env(udates, filename='whaleshark', type = 'sst', sst.type='ghr', spatLim = sp.lim, save.dir = sst.dir)
+  HMMoce::get.env(udates, filename='whaleshark', type = 'sst', sst.type='ghr', spatLim = sp.lim, save.dir = sst.dir)
   
-  require(RNetCDF); require(fields)
   nc <- open.nc(paste(sst.dir, 'whaleshark_', udates,'.nc',sep=''))
   lat <- as.numeric(var.get.nc(nc, 'latitude'))
   lon <- as.numeric(var.get.nc(nc, 'longitude'))
@@ -36,13 +36,14 @@ for (i in 8:nrow(dat)){
                      ymn=min(lat[lat.idx]), ymx=max(lat[lat.idx])),2)
   #sst.rnge <- cellStats(sst, 'range')
   sst.rnge <- c(58, 78)
-  sst.breaks = seq(sst.rnge[1], sst.rnge[2], length.out=201)
-  sst.mid = sst.breaks[1:(length(sst.breaks)-1)]
+  sst.breaks <- seq(sst.rnge[1], sst.rnge[2], length.out=201)
+  sst.mid <- sst.breaks[1:(length(sst.breaks)-1)]
   sst.col <- jet.colors(length(sst.breaks)-1) #[as.vector((dataT))]
   
   bathy.rnge <- c(0, -3000)
   bathy.breaks = seq(bathy.rnge[1], bathy.rnge[2], length.out=201)
   bathy.mid = bathy.breaks[1:(length(bathy.breaks)-1)]
+  gry.pal <- colorRampPalette(rev(brewer.pal(9, 'Greys')[1:6]))#(100))
   bathy.col <- gry.pal(length(bathy.breaks)-1)
   
   add.alpha <- function(COLORS, ALPHA){
